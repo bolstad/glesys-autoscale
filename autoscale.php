@@ -5,11 +5,11 @@
             "serverid" => getenv('GLESYS_SERVERID'),      // The ID of the server to be controlled. starts with vz or xm. Can be found when you
             "API-key" =>  getenv('GLESYS_APIKEY'),  				  // Your API-key. Can be generated at http://customer.glesys.com
             "peak" => array(
-                "memory" => 4096,   // Amount of memory assigned with the peak()-function.
-                "cores" => 4        // Amount of CPU cores assigned with the peak()-function.
+                "memory" => 768,    // Amount of memory assigned with the peak()-function.
+                "cores" => 2        // Amount of CPU cores assigned with the peak()-function.
             ),
             "low" => array(
-                "memory" => 1024,   // Amount of memory assigned with the low()-function.
+                "memory" => 256,    // Amount of memory assigned with the low()-function.
                 "cores" => 1        // Amount of CPU cores assigned with the low()-function.
             ),
             "changevals" => array(  // Configs for the memchange()-function
@@ -24,29 +24,28 @@
             echo "Connection error: ".$e->getMessage();
             return;
         }
-        if(isset($_GET["pass"]) and isset($_GET["cmd"]))
+
+		$servercmd = $argv[1];
+		
+		
+        if(isset($servercmd))
         {
-            if($_GET["pass"] == $config["local password"])
-            {
-                if($_GET["cmd"] == "low" or $_GET["cmd"] == "serverlow")
+                if($servercmd == "low" or $servercmd == "serverlow")
                     serverlow();
-                elseif($_GET["cmd"] == "peak" or $_GET["cmd"] == "serverpeak")
+                elseif($servercmd == "peak" or $servercmd == "serverpeak")
                     serverpeak();
-                elseif($_GET["cmd"] == "reboot")
+                elseif($servercmd == "reboot")
                     reboot();
-                elseif($_GET["cmd"] == "details" or $_GET["cmd"] == "detail")
+                elseif($servercmd == "details" or $servercmd == "detail")
                     details();
-                elseif($_GET["cmd"] == "status")
+                elseif($servercmd == "status")
                     status();
-                elseif($_GET["cmd"] == "memchange"or $_GET["cmd"] == "changemem")
+                elseif($servercmd == "memchange"or $servercmd == "changemem")
                     memchange();
-                elseif($_GET["cmd"] == "console"or $_GET["cmd"] == "remote")
+                elseif($servercmd == "console"or $servercmd == "remote")
                     console();
                 else
                     echo"Unknown command.";
-            }
-            else
-                echo "Wrong password";
         }
         else
         {
@@ -107,6 +106,8 @@
                 echo "Details error: ".$e->getMessage();
                 return;
             }
+			print_r($details);
+			exit;
             echo "<table>";
             foreach($details["server"] as $key => $values)
             {
@@ -139,28 +140,22 @@
                 echo "Status error: ".$e->getMessage();
                 return;
             }
-            echo "<table>";
+			print_r($status);
             foreach($status["server"] as $key => $values)
             {
                 if($key == "cpu")
-                    echo "<tr><td>cpu usage</td><td>".($values["system"]+$values["user"]+$values["nice"])."%</td></tr>";
+                   echo "cpu usage:      ".($values["system"]+$values["user"]+$values["nice"])."%\n";
                 elseif($key == "memory")
-                    echo "<tr><td>memory-</td><td>usage: ".$values["memusage"]." MB<br/>size: ".$values["memsize"]." MB</td>";
+                   echo "memory-usage:   ".$values["usage"]. "/".$values["max"]." ". $values["unit"]."\n";
                 elseif($key == "disk")
-                    echo "<tr><td>harddrive</td><td>free: ".($values["disksize"]-$values["diskused"])." ".$values["unit"]."</td></tr>";
-                elseif($key == "bandwidth")
-                    echo "<tr><td>bandwidth</td><td>today: ".$values["today"]." GB<br/>last month/maxwidth: ".$values["last30days"]."/".$values["max"]."</td></tr>";
-                elseif($key == "uptime")
-                {
-                    echo"<tr><td>uptime:</td><td>";
-                    $values = explode(" ", $values);
-                    $interval = array("years","months","weeks","days","hours","minutes","seconds");
-                    for($i = 0; $i < 7; $i++)
-                        echo $values[$i]." ".$interval[$i].",";
-                    echo"</td></tr>";
-                }
-                else
-                    echo "<tr><td>".$key."</td><td>".$values."</td></tr>";
+                   echo "harddrive free: ".($values["max"]-$values["usage"])." ".$values["unit"]."\n";
+                elseif($key == "transfer")
+               	   echo "transfer:       " . $values["usage"] . "/" . $values["max"]. " " . $values["unit"] . "\n";
+               elseif($key == "uptime")
+            	   echo "uptime:         " . $values["current"] . " " . $values["unit"] ."\n";
+/*                else
+                    echo "".$key." : ".$values."";	*/
+
             }
         }
 	//Automaticall upgrade or downgrade the memory of the server based on how much memory the server is currently using.
@@ -177,7 +172,8 @@
                 return;
             }
             $allowed_options = array(128, 256, 512, 768, 1024, 1536, 2048, 2560, 3072, 3584, 4096, 5120, 6144, 7168, 8192, 9216, 10240, 11264, 12288);
-            $size = $freemem["server"]["memory"]["memsize"];
+			print_r($freemem);
+            $size = $freemem["server"]["memory"]["max"];
             if(isset($_GET["usedmem"]))
                 if(is_numeric($_GET["usedmem"]))
                     $freemem = $size - $_GET["usedmem"];
@@ -187,8 +183,8 @@
                     die;
                 }
             else
-                if(is_numeric($freemem["server"]["memory"]["memusage"]))
-                    $freemem = $size-$freemem["server"]["memory"]["memusage"];
+                if(is_numeric($freemem["server"]["memory"]["usage"]))
+                    $freemem = $size-$freemem["server"]["memory"]["usage"];
                 else
                 {
                     echo"Needs the \"usedmem\" argument.";
